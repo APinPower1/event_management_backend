@@ -18,6 +18,7 @@ export default function CreateEventPage() {
     contact_number: "",
     poster_url: "",
     category: "",
+    upi_id: "",
   });
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
@@ -138,6 +139,7 @@ export default function CreateEventPage() {
         contact_number: form.contact_number,
         poster_url,
         category: form.category,
+        upi_id: form.upi_id || null,
       };
 
       const res = await api.post("/events/", payload);
@@ -203,6 +205,17 @@ export default function CreateEventPage() {
           </Field>
           <Field label="Contact Number">
             <input value={form.contact_number} onChange={(e) => set("contact_number", e.target.value)} className={inputClass} />
+          </Field>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="UPI ID (for paid events)">
+            <input
+              value={form.upi_id || ""}
+              onChange={(e) => set("upi_id", e.target.value)}
+              placeholder="e.g. yourname@upi"
+              className={inputClass}
+            />
           </Field>
         </div>
 
