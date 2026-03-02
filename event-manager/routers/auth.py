@@ -4,11 +4,13 @@ from pydantic import BaseModel, EmailStr
 from passlib.context import CryptContext
 from jose import jwt, JWTError
 import os
+from dotenv import load_dotenv
+
 from database import get_db
 from models import User
 from fastapi import APIRouter, Depends, HTTPException, Query
-
-
+load_dotenv()
+SECRET_KEY = os.getenv("JWT_SECRET", "fallbacksecret")
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -86,3 +88,14 @@ def assign_role(data: AssignRoleRequest, token: str = Query(...), db: Session = 
 def get_me(token: str = Query(...), db: Session = Depends(get_db)):
     user = get_current_user(token, db)
     return {"id": user.id, "name": user.name, "email": user.email, "role": user.role}
+
+@router.post("/make-admin")
+def make_admin(email: str = Query(...), secret: str = Query(...), db: Session = Depends(get_db)):
+    if secret != os.getenv("JWT_SECRET"):
+        raise HTTPException(status_code=403, detail="Invalid secret")
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    user.role = "admin"
+    db.commit()
+    return {"message": f"{user.name} is now an admin"}

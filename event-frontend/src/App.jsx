@@ -7,6 +7,7 @@ import EventDetailPage from "./pages/EventDetailPage";
 import CreateEventPage from "./pages/CreateEventPage";
 import EditEventPage from "./pages/EditEventPage";   
 import AdminPage from "./pages/AdminPage";
+import MyRegistrationsPage from "./pages/MyRegistrationsPage";
 
 
 function PrivateRoute({ children }) {
@@ -27,6 +28,7 @@ export default function App() {
             <Route path="/events/:id" element={<EventDetailPage />} />
             <Route path="/events/:id/edit" element={<PrivateRoute><EditEventPage /></PrivateRoute>} />
               {/* ← ADD THIS */}
+            <Route path="/my-registrations" element={<PrivateRoute><MyRegistrationsPage /></PrivateRoute>} />
             <Route path="/admin" element={<PrivateRoute><AdminPage /></PrivateRoute>} />
             <Route
               path="/create"

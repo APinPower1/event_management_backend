@@ -35,8 +35,18 @@ export default function EventCard({ event }) {
         </div>
         <div className="flex items-center justify-between text-xs text-zinc-500 mt-1">
           <span>🗓 {new Date(event.date).toLocaleDateString()}</span>
-          <span>{event.seats_remaining} / {event.total_seats} seats left</span>
-        </div>
+          <span className={isFull ? "text-red-400" : isClosingSoon ? "text-amber-400" : "text-zinc-500"}>
+            {event.seats_remaining} / {event.total_seats} seats left
+          </span>
+          </div>
+          <div className="mt-2 h-1.5 w-full bg-zinc-800 rounded-full overflow-hidden">
+            <div
+            className={`h-full rounded-full transition-all ${
+              isFull ? "bg-red-500" : isClosingSoon ? "bg-amber-400" : "bg-green-500"
+            }`}
+            style={{ width: `${((event.total_seats - event.seats_remaining) / event.total_seats) * 100}%` }}
+            />
+          </div>
         {event.category && (
           <span className="mt-2 inline-block text-xs bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded">
             {event.category}

@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from database import get_db
-from models import Registration, Event, User
 from .auth import SECRET_KEY, ALGORITHM
 from jose import jwt, JWTError
 import uuid
+from models import Registration, Event, User, Waitlist
 
 router = APIRouter(prefix="/registrations", tags=["Registrations"])
 
@@ -18,6 +18,78 @@ def get_current_user(token: str, db: Session):
         return user
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid token")
+@router.get("/my", status_code=200)
+def get_my_registrations(token: str = Query(...), db: Session = Depends(get_db)):
+    user = get_current_user(token, db)
+    registrations = db.query(Registration).filter(Registration.user_id == user.id).all()
+    result = []
+    for r in registrations:
+        event = db.query(Event).filter(Event.id == r.event_id).first()
+        result.append({
+            "booking_id": r.booking_id,
+            "registered_at": r.registered_at,
+            "event_id": r.event_id,
+            "event_title": event.title,
+            "event_date": event.date,
+            "event_location": event.location,
+            "event_status": event.status,
+            "seats_remaining": event.seats_remaining
+        })
+    return result
+
+
+@router.post("/{event_id}/waitlist", status_code=201)
+def join_waitlist(event_id: int, token: str = Query(...), db: Session = Depends(get_db)):
+    user = get_current_user(token, db)
+    event = db.query(Event).filter(Event.id == event_id).first()
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    if event.seats_remaining > 0:
+        raise HTTPException(status_code=400, detail="Event still has seats available — just register!")
+    already_registered = db.query(Registration).filter(
+        Registration.user_id == user.id, Registration.event_id == event_id
+    ).first()
+    if already_registered:
+        raise HTTPException(status_code=409, detail="You are already registered for this event")
+    already_waitlisted = db.query(Waitlist).filter(
+        Waitlist.user_id == user.id, Waitlist.event_id == event_id
+    ).first()
+    if already_waitlisted:
+        raise HTTPException(status_code=409, detail="You are already on the waitlist")
+    entry = Waitlist(user_id=user.id, event_id=event_id)
+    db.add(entry)
+    db.commit()
+    position = db.query(Waitlist).filter(Waitlist.event_id == event_id).count()
+    return {"message": "Added to waitlist", "position": position}
+
+
+@router.delete("/{event_id}/waitlist", status_code=200)
+def leave_waitlist(event_id: int, token: str = Query(...), db: Session = Depends(get_db)):
+    user = get_current_user(token, db)
+    entry = db.query(Waitlist).filter(
+        Waitlist.user_id == user.id, Waitlist.event_id == event_id
+    ).first()
+    if not entry:
+        raise HTTPException(status_code=404, detail="You are not on the waitlist")
+    db.delete(entry)
+    db.commit()
+    return {"message": "Removed from waitlist"}
+
+
+@router.get("/{event_id}/waitlist/status", status_code=200)
+def waitlist_status(event_id: int, token: str = Query(...), db: Session = Depends(get_db)):
+    user = get_current_user(token, db)
+    entry = db.query(Waitlist).filter(
+        Waitlist.user_id == user.id, Waitlist.event_id == event_id
+    ).first()
+    if not entry:
+        return {"on_waitlist": False, "position": None}
+    position = db.query(Waitlist).filter(
+        Waitlist.event_id == event_id, Waitlist.id <= entry.id
+    ).count()
+    return {"on_waitlist": True, "position": position}
+
+
 
 # --- Routes ---
 @router.post("/{event_id}", status_code=201)
@@ -110,7 +182,7 @@ def get_registrants(
     event = db.query(Event).filter(Event.id == event_id).first()
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
-    if event.organizer_id != user.id:
+    if user.role != "admin" and event.organizer_id != user.id:
         raise HTTPException(status_code=403, detail="Only the organizer can view registrants")
 
     registrations = db.query(Registration).filter(Registration.event_id == event_id).all()
@@ -119,7 +191,13 @@ def get_registrants(
         "total_seats": event.total_seats,
         "seats_remaining": event.seats_remaining,
         "registrants": [
-            {"user_id": r.user_id, "booking_id": r.booking_id, "registered_at": r.registered_at}
-            for r in registrations
+            {
+        "user_id": r.user_id,
+        "user_name": db.query(User).filter(User.id == r.user_id).first().name,
+        "user_email": db.query(User).filter(User.id == r.user_id).first().email,
+        "booking_id": r.booking_id,
+        "registered_at": r.registered_at
+    }
+    for r in registrations
         ]
     }

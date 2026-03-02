@@ -38,3 +38,9 @@ class Registration(Base):
     registered_at = Column(DateTime, default=datetime.datetime.utcnow)
     user = relationship("User", back_populates="registrations")
     event = relationship("Event", back_populates="registrations")
+class Waitlist(Base):
+    __tablename__ = "waitlist"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    event_id = Column(Integer, ForeignKey("events.id"), nullable=False)
+    joined_at = Column(DateTime, default=datetime.datetime.utcnow)

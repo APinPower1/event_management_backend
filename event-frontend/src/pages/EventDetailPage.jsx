@@ -9,6 +9,10 @@ export default function EventDetailPage() {
   const [loading, setLoading] = useState(true);
   const [regLoading, setRegLoading] = useState(false);
   const [message, setMessage] = useState(null); // { type: "success" | "error", text: string }
+  const [registrants, setRegistrants] = useState(null);
+  const [regListLoading, setRegListLoading] = useState(false);
+  const [waitlist, setWaitlist] = useState({ on_waitlist: false, position: null });
+  const [waitlistLoading, setWaitlistLoading] = useState(false);
   const token = localStorage.getItem("token");
 
   async function fetchEvent() {
@@ -24,6 +28,7 @@ export default function EventDetailPage() {
 
   useEffect(() => {
     fetchEvent();
+    if (token) fetchWaitlistStatus();
   }, [id]);
 
   async function handleRegister() {
@@ -57,6 +62,60 @@ export default function EventDetailPage() {
       setRegLoading(false);
     }
   }
+
+async function fetchWaitlistStatus() {
+    try {
+      const cleanToken = token.replace(/^"|"$/g, "");
+      const res = await api.get(`/registrations/${id}/waitlist/status?token=${cleanToken}`);
+      setWaitlist(res.data);
+    } catch {
+      // not on waitlist
+    }
+  }
+
+  async function handleJoinWaitlist() {
+    setWaitlistLoading(true);
+    setMessage(null);
+    try {
+      const cleanToken = token.replace(/^"|"$/g, "");
+      const res = await api.post(`/registrations/${id}/waitlist?token=${cleanToken}`);
+      setMessage({ type: "success", text: `Added to waitlist! You are #${res.data.position} in line.` });
+      setWaitlist({ on_waitlist: true, position: res.data.position });
+    } catch (err) {
+      setMessage({ type: "error", text: err.response?.data?.detail || "Failed to join waitlist" });
+    } finally {
+      setWaitlistLoading(false);
+    }
+  }
+
+  async function handleLeaveWaitlist() {
+    setWaitlistLoading(true);
+    setMessage(null);
+    try {
+      const cleanToken = token.replace(/^"|"$/g, "");
+      await api.delete(`/registrations/${id}/waitlist?token=${cleanToken}`);
+      setMessage({ type: "success", text: "Removed from waitlist." });
+      setWaitlist({ on_waitlist: false, position: null });
+    } catch (err) {
+      setMessage({ type: "error", text: err.response?.data?.detail || "Failed to leave waitlist" });
+    } finally {
+      setWaitlistLoading(false);
+    }
+  }
+
+async function fetchRegistrants() {
+  if (registrants) { setRegistrants(null); return; } // toggle off
+  setRegListLoading(true);
+  try {
+    const cleanToken = token.replace(/^"|"$/g, "");
+    const res = await api.get(`/registrations/${id}?token=${cleanToken}`);
+    setRegistrants(res.data);
+  } catch (err) {
+    setMessage({ type: "error", text: "Failed to load registrants" });
+  } finally {
+    setRegListLoading(false);
+  }
+}
 
   if (loading) return <div className="text-zinc-500 text-sm">Loading...</div>;
   if (!event) return null;
@@ -99,10 +158,23 @@ export default function EventDetailPage() {
           <div className="text-zinc-500 text-xs mb-1">Date</div>
           <div>{new Date(event.date).toLocaleString()}</div>
         </div>
-        <div className="bg-zinc-900 border border-zinc-800 rounded p-3">
-          <div className="text-zinc-500 text-xs mb-1">Location</div>
-          <div>{event.location}</div>
+      <div className="bg-zinc-900 border border-zinc-800 rounded p-3">
+        <div className="text-zinc-500 text-xs mb-1">Location</div>
+        <div>
+          {event.location}
+          <a
+            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-xs text-amber-400 hover:text-amber-300 mt-2 transition-colors"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+            </svg>
+            View on Google Maps
+          </a>
         </div>
+      </div>
         <div className="bg-zinc-900 border border-zinc-800 rounded p-3">
           <div className="text-zinc-500 text-xs mb-1">Seats Remaining</div>
           <div>
@@ -149,12 +221,20 @@ export default function EventDetailPage() {
     (role === "organizer" && userId && parseInt(userId) === event.organizer_id);
 
   return isOrganizer ? (
-    <div className="flex gap-3">
+  <div>
+    <div className="flex gap-3 mb-4">
       <button
         onClick={() => navigate(`/events/${id}/edit`)}
         className="bg-amber-400 text-zinc-950 font-semibold px-6 py-2 rounded hover:bg-amber-300 transition-colors"
       >
         Edit Event
+      </button>
+      <button
+        onClick={fetchRegistrants}
+        disabled={regListLoading}
+        className="border border-amber-400 text-amber-400 px-6 py-2 rounded hover:bg-amber-400 hover:text-zinc-950 transition-colors disabled:opacity-40"
+      >
+        {regListLoading ? "Loading..." : registrants ? "Hide Registrants" : "View Registrants"}
       </button>
       <button
         onClick={async () => {
@@ -170,15 +250,70 @@ export default function EventDetailPage() {
         Cancel Event
       </button>
     </div>
-  ) : (
+
+    {registrants && (
+      <div className="mt-4 border border-zinc-800 rounded-lg overflow-hidden">
+        <div className="bg-zinc-900 px-4 py-3 flex items-center justify-between">
+          <span className="text-sm font-semibold">Registrants</span>
+          <span className="text-xs text-zinc-500">
+            {registrants.total_seats - registrants.seats_remaining} / {registrants.total_seats} seats filled
+          </span>
+        </div>
+        {registrants.registrants.length === 0 ? (
+          <div className="px-4 py-6 text-center text-zinc-500 text-sm">No registrations yet</div>
+        ) : (
+          <div className="divide-y divide-zinc-800">
+            {registrants.registrants.map((r, i) => (
+              <div key={r.booking_id} className="px-4 py-3 flex items-center justify-between text-sm">
+                <div className="flex items-center gap-3">
+                  <span className="text-zinc-600 text-xs w-5">{i + 1}</span>
+                  <div>
+                    <span className="text-zinc-300">{r.user_name}</span>
+                    <span className="text-zinc-500 text-xs ml-2">{r.user_email}</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-4">
+                  <span className="text-amber-400 font-mono text-xs">#{r.booking_id}</span>
+                  <span className="text-zinc-600 text-xs">
+                    {new Date(r.registered_at).toLocaleDateString("en-GB", {
+                      day: "numeric", month: "short", hour: "2-digit", minute: "2-digit"
+                    })}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    )}
+  </div>
+) : (
     <div className="flex gap-3">
+      {isFull ? (
+        <button
+        onClick={waitlist.on_waitlist ? handleLeaveWaitlist : handleJoinWaitlist}
+        disabled={waitlistLoading}
+        className={`font-semibold px-6 py-2 rounded transition-colors disabled:opacity-40 ${
+          waitlist.on_waitlist
+          ? "border border-red-700 text-red-400 hover:bg-red-900/30"
+          : "bg-zinc-700 text-zinc-100 hover:bg-zinc-600"
+        }`}
+      >
+        {waitlistLoading
+          ? "Processing..."
+          : waitlist.on_waitlist
+          ? `Leave Waitlist (Position #${waitlist.position})`
+          : "Join Waitlist"}
+      </button>
+    ) : (
       <button
         onClick={handleRegister}
-        disabled={isFull || regLoading}
+        disabled={regLoading}
         className="bg-amber-400 text-zinc-950 font-semibold px-6 py-2 rounded hover:bg-amber-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
       >
-        {regLoading ? "Processing..." : isFull ? "Sold Out" : "Register"}
+        {regLoading ? "Processing..." : "Register"}   
       </button>
+    )}
       <button
         onClick={handleCancel}
         disabled={regLoading}

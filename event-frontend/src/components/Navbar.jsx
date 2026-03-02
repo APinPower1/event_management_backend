@@ -18,6 +18,10 @@ export default function Navbar() {
         <div className="flex items-center gap-4 text-sm">
           <Link to="/events" className="text-zinc-400 hover:text-zinc-100 transition-colors">
             Browse
+            
+          </Link>
+          <Link to="/my-registrations" className="text-zinc-400 hover:text-zinc-100 transition-colors">
+            My Registrations
           </Link>
           {token ? (
             <>
