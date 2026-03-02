@@ -142,24 +142,51 @@ export default function EventDetailPage() {
         </div>
       )}
 
-      {!isCancelled && (
-        <div className="flex gap-3">
-          <button
-            onClick={handleRegister}
-            disabled={isFull || regLoading}
-            className="bg-amber-400 text-zinc-950 font-semibold px-6 py-2 rounded hover:bg-amber-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            {regLoading ? "Processing..." : isFull ? "Sold Out" : "Register"}
-          </button>
-          <button
-            onClick={handleCancel}
-            disabled={regLoading}
-            className="border border-zinc-700 text-zinc-400 px-6 py-2 rounded hover:border-red-700 hover:text-red-400 transition-colors disabled:opacity-40"
-          >
-            Cancel Registration
-          </button>
-        </div>
-      )}
+{!isCancelled && (() => {
+  const userId = token ? JSON.parse(atob(token.split('.')[1])).sub : null;
+  const isOrganizer = userId && parseInt(userId) === event.organizer_id;
+
+  return isOrganizer ? (
+    <div className="flex gap-3">
+      <button
+        onClick={() => navigate(`/events/${id}/edit`)}
+        className="bg-amber-400 text-zinc-950 font-semibold px-6 py-2 rounded hover:bg-amber-300 transition-colors"
+      >
+        Edit Event
+      </button>
+      <button
+        onClick={async () => {
+          try {
+            await api.delete(`/events/${id}?token=${token}`);
+            navigate('/events');
+          } catch (err) {
+            setMessage({ type: "error", text: err.response?.data?.detail || "Failed to cancel event" });
+          }
+        }}
+        className="border border-zinc-700 text-zinc-400 px-6 py-2 rounded hover:border-red-700 hover:text-red-400 transition-colors"
+      >
+        Cancel Event
+      </button>
+    </div>
+  ) : (
+    <div className="flex gap-3">
+      <button
+        onClick={handleRegister}
+        disabled={isFull || regLoading}
+        className="bg-amber-400 text-zinc-950 font-semibold px-6 py-2 rounded hover:bg-amber-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+      >
+        {regLoading ? "Processing..." : isFull ? "Sold Out" : "Register"}
+      </button>
+      <button
+        onClick={handleCancel}
+        disabled={regLoading}
+        className="border border-zinc-700 text-zinc-400 px-6 py-2 rounded hover:border-red-700 hover:text-red-400 transition-colors disabled:opacity-40"
+      >
+        Cancel Registration
+      </button>
+    </div>
+  );
+})()}
     </div>
   );
 }

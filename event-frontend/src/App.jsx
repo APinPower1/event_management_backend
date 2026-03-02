@@ -5,6 +5,7 @@ import SignupPage from "./pages/SignupPage";
 import EventsPage from "./pages/EventsPage";
 import EventDetailPage from "./pages/EventDetailPage";
 import CreateEventPage from "./pages/CreateEventPage";
+import EditEventPage from "./pages/EditEventPage";   // ← ADD THIS
 
 function PrivateRoute({ children }) {
   return localStorage.getItem("token") ? children : <Navigate to="/login" />;
@@ -22,6 +23,7 @@ export default function App() {
             <Route path="/signup" element={<SignupPage />} />
             <Route path="/events" element={<EventsPage />} />
             <Route path="/events/:id" element={<EventDetailPage />} />
+            <Route path="/events/:id/edit" element={<PrivateRoute><EditEventPage /></PrivateRoute>} />  {/* ← ADD THIS */}
             <Route
               path="/create"
               element={

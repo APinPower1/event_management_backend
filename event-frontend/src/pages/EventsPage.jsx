@@ -8,6 +8,7 @@ export default function EventsPage() {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("");
   const [availableOnly, setAvailableOnly] = useState(false);
+  const [dateSort, setDateSort] = useState(""); // "asc" | "desc" | ""
 
   async function fetchEvents() {
     setLoading(true);
@@ -27,12 +28,19 @@ export default function EventsPage() {
 
   useEffect(() => {
     fetchEvents();
-  }, [availableOnly]);
+  }, [availableOnly, category]);
 
   function handleSearch(e) {
     e.preventDefault();
     fetchEvents();
   }
+
+  // Sort events on the frontend based on dateSort
+  const sortedEvents = [...events].sort((a, b) => {
+    if (!dateSort) return 0;
+    const diff = new Date(a.date) - new Date(b.date);
+    return dateSort === "asc" ? diff : -diff;
+  });
 
   return (
     <div>
@@ -42,6 +50,7 @@ export default function EventsPage() {
 
       {/* Filters */}
       <form onSubmit={handleSearch} className="flex flex-wrap gap-2 mb-6">
+        {/* Search */}
         <input
           type="text"
           placeholder="Search events..."
@@ -49,19 +58,42 @@ export default function EventsPage() {
           onChange={(e) => setSearch(e.target.value)}
           className="bg-zinc-900 border border-zinc-700 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-amber-400 flex-1 min-w-40"
         />
-        <input
-          type="text"
-          placeholder="Category"
+
+        {/* Category dropdown */}
+        <select
           value={category}
           onChange={(e) => setCategory(e.target.value)}
-          className="bg-zinc-900 border border-zinc-700 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-amber-400 w-36"
-        />
+          className="bg-zinc-900 border border-zinc-700 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-amber-400 text-zinc-300"
+        >
+          <option value="">All Categories</option>
+          <option>Tech</option>
+          <option>Music</option>
+          <option>Sports</option>
+          <option>Art</option>
+          <option>Food</option>
+          <option>Business</option>
+          <option>Other</option>
+        </select>
+
+        {/* Date sort */}
+        <select
+          value={dateSort}
+          onChange={(e) => setDateSort(e.target.value)}
+          className="bg-zinc-900 border border-zinc-700 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-amber-400 text-zinc-300"
+        >
+          <option value="">Sort by Date</option>
+          <option value="asc">Date: Nearest First</option>
+          <option value="desc">Date: Furthest First</option>
+        </select>
+
         <button
           type="submit"
           className="bg-amber-400 text-zinc-950 px-4 py-1.5 rounded text-sm font-medium hover:bg-amber-300 transition-colors"
         >
           Search
         </button>
+
+        {/* Available only toggle */}
         <label className="flex items-center gap-2 text-sm text-zinc-400 cursor-pointer">
           <input
             type="checkbox"
@@ -75,14 +107,17 @@ export default function EventsPage() {
 
       {loading ? (
         <div className="text-zinc-500 text-sm">Loading events...</div>
-      ) : events.length === 0 ? (
+      ) : sortedEvents.length === 0 ? (
         <div className="text-zinc-500 text-sm">No events found.</div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {events.map((event) => (
-            <EventCard key={event.id} event={event} />
-          ))}
-        </div>
+        <>
+          <div className="text-zinc-500 text-xs mb-3">{sortedEvents.length} event{sortedEvents.length !== 1 ? "s" : ""} found</div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {sortedEvents.map((event) => (
+              <EventCard key={event.id} event={event} />
+            ))}
+          </div>
+        </>
       )}
     </div>
   );

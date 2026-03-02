@@ -9,7 +9,7 @@ class User(Base):
     email = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
     phone = Column(String, nullable=True)
-    is_admin = Column(Boolean, default=False)
+    role = Column(String, default="user")  # "user", "organizer", "admin"
     registrations = relationship("Registration", back_populates="user")
     events = relationship("Event", back_populates="organizer")
 class Event(Base):
